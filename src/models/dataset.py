@@ -1,54 +1,59 @@
 from __future__ import annotations
 
-from enum import Enum
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-
-class LicenseStatus(BaseModel):
-    detected: bool = False
-    license_type: str = "unknown"
-    license_name: Optional[str] = None
-    needs_verification: bool = False
+from src.models.license import LicenseStatus
+from src.models.score import ReadinessScore
 
 
 class DataPreview(BaseModel):
-    columns: list[dict[str, Any]] = Field(default_factory=list)
-    sample_rows: list[dict[str, Any]] = Field(default_factory=list)
-    total_rows: int = 0
-    total_columns: int = 0
+    """Preview data (sample rows, schema)."""
+    columns: list[dict[str, Any]] = Field(default_factory=list, description="Column definitions")
+    sample_rows: list[dict[str, Any]] = Field(default_factory=list, description="Sample data rows")
+    total_rows: int = Field(default=0, description="Total number of rows")
+    total_columns: int = Field(default=0, description="Total number of columns")
 
 
 class DataProfile(BaseModel):
-    numeric_stats: dict[str, Any] = Field(default_factory=dict)
-    categorical_stats: dict[str, Any] = Field(default_factory=dict)
-    missing_summary: dict[str, Any] = Field(default_factory=dict)
-
-
-class ReadinessScore(BaseModel):
-    total: float = 0.0
-    grade: str = "F"
-    breakdown: dict[str, float] = Field(default_factory=dict)
+    """Statistical profile of dataset."""
+    numeric_stats: dict[str, Any] = Field(default_factory=dict, description="Numeric column statistics")
+    categorical_stats: dict[str, Any] = Field(default_factory=dict, description="Categorical column statistics")
+    missing_summary: dict[str, Any] = Field(default_factory=dict, description="Missing value analysis")
 
 
 class DatasetResult(BaseModel):
-    id: str
-    title: str
-    description: str = ""
-    source: str
-    source_url: str
-    download_url: Optional[str] = None
-    rows: Optional[int] = None
-    columns: Optional[int] = None
-    file_size_mb: Optional[float] = None
-    file_format: Optional[str] = None
-    last_updated: Optional[str] = None
-    relevance_score: float = 0.0
-    readiness_score: Optional[ReadinessScore] = None
-    license_status: LicenseStatus = Field(default_factory=LicenseStatus)
-    preview: Optional[DataPreview] = None
-    tags: list[str] = Field(default_factory=list)
-    domain: str = "other"
-    region: Optional[str] = None
-    merged_from: list[str] = Field(default_factory=list)
+    """A single dataset result from a data source search."""
+
+    id: str = Field(..., description="Unique dataset identifier")
+    title: str = Field(..., description="Dataset title")
+    description: str = Field(default="", description="Dataset description")
+    source: str = Field(..., description="Source name: huggingface, kaggle, etc.")
+    source_url: str = Field(..., description="URL at the original source")
+    download_url: Optional[str] = Field(None, description="Direct download link")
+
+    # Metadata
+    rows: Optional[int] = Field(None, description="Number of data rows")
+    columns: Optional[int] = Field(None, description="Number of columns")
+    file_size_mb: Optional[float] = Field(None, description="File size in MB")
+    file_format: Optional[str] = Field(None, description="File format: csv, json, parquet")
+    last_updated: Optional[str] = Field(None, description="Last update timestamp")
+
+    # Scores
+    relevance_score: float = Field(default=0.0, ge=0.0, le=1.0, description="Relevance score (0-1)")
+    readiness_score: Optional[ReadinessScore] = Field(None, description="Readiness score (0-100)")
+
+    # License
+    license_status: LicenseStatus = Field(default_factory=LicenseStatus, description="License status")
+
+    # Preview
+    preview: Optional[DataPreview] = Field(None, description="Data preview (sample rows, schema)")
+
+    # Tags & Domain
+    tags: list[str] = Field(default_factory=list, description="Dataset tags")
+    domain: str = Field(default="other", description="Domain category")
+    region: Optional[str] = Field(None, description="Geographic region")
+
+    # Dedup
+    merged_from: list[str] = Field(default_factory=list, description="Source IDs if merged from duplicates")
