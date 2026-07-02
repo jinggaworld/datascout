@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -8,9 +9,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.cap.clear import process_clear
 from src.cap.deliver import format_delivery, generate_hash_proof
 from src.cap.negotiation import estimate_price
+from src.engine.dedup import DeduplicationEngine
+from src.engine.license import LicenseExtractor
+from src.engine.orchestrator import create_default_orchestrator
+from src.engine.ranking import RankingEngine
+from src.engine.score import ReadinessCalculator
 from src.groq.parser import QueryParser
 from src.models.cap import CapOrder, CapOrderStatus
 from src.models.query import ParsedQuery
+from src.report.generator import ReportGenerator, generate_markdown
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,6 +44,12 @@ app.add_middleware(
 # Lazy-initialized singletons
 _parser: QueryParser | None = None
 _orders: dict[str, CapOrder] = {}
+_orchestrator = None
+_license_extractor = LicenseExtractor()
+_ranking_engine = RankingEngine()
+_dedup_engine = DeduplicationEngine()
+_score_calculator = ReadinessCalculator()
+_report_generator = ReportGenerator()
 
 
 def get_parser() -> QueryParser:
@@ -44,6 +57,13 @@ def get_parser() -> QueryParser:
     if _parser is None:
         _parser = QueryParser()
     return _parser
+
+
+def get_orchestrator():
+    global _orchestrator
+    if _orchestrator is None:
+        _orchestrator = create_default_orchestrator()
+    return _orchestrator
 
 
 def _build_parsed_query(data: dict[str, Any]) -> ParsedQuery:
@@ -56,6 +76,62 @@ def _build_parsed_query(data: dict[str, Any]) -> ParsedQuery:
             domain=data.get("domain", "other"),
         )
     return ParsedQuery(topic="unknown", domain="other")
+
+
+# ---------------------------------------------------------------------------
+# Full Search Pipeline
+# ---------------------------------------------------------------------------
+
+@app.post("/api/v1/search")
+async def search_datasets(input_data: dict[str, Any]) -> dict[str, Any]:
+    """Full search pipeline: parse → search → dedup → rank → license → score → report."""
+    start = time.monotonic()
+
+    try:
+        # 1. Parse query
+        parser = get_parser()
+        parsed: ParsedQuery = await parser.parse(input_data)
+
+        # 2. Parallel search across all adapters
+        orch = get_orchestrator()
+        raw_results, stats = await orch.search_all(parsed, limit_per_source=20)
+
+        # 3. Deduplicate
+        deduped = _dedup_engine.deduplicate(raw_results)
+
+        # 4. Rank by relevance
+        ranked = _ranking_engine.rank(parsed, deduped)
+
+        # 5. Extract licenses
+        licensed = _license_extractor.extract_batch(ranked)
+
+        # 6. Calculate readiness scores
+        scored = _score_calculator.calculate_batch(licensed)
+
+        # 7. Generate report
+        report = _report_generator.generate(
+            query=parsed,
+            datasets=scored,
+            stats={
+                "sources_searched": stats.sources_searched,
+                "elapsed_ms": stats.elapsed_ms,
+            },
+        )
+
+        elapsed = int((time.monotonic() - start) * 1000)
+
+        return {
+            "status": "success",
+            "elapsed_ms": elapsed,
+            "report": report.model_dump(),
+            "markdown": generate_markdown(report),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error("Search pipeline error: %s", e)
+        raise HTTPException(status_code=500, detail=f"Search failed: {e}")
 
 
 # ---------------------------------------------------------------------------
