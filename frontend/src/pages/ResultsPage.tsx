@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { AlertCircle, Clock, Database, Filter } from 'lucide-react'
+import { AlertCircle, Clock, Database } from 'lucide-react'
 import { searchDatasets, type DatasetResult } from '../api'
 import { SearchBar } from '../components/SearchBar'
 import { DatasetCard } from '../components/DatasetCard'
@@ -22,12 +22,10 @@ export function ResultsPage() {
     setSearchParams({ q })
   }
 
-  // Get unique sources for filter
   const sources = data?.report?.top_datasets
     ? [...new Set(data.report.top_datasets.map((d: DatasetResult) => d.source))]
     : []
 
-  // Filter and sort datasets
   let datasets = data?.report?.top_datasets || []
   if (filterSource !== 'all') {
     datasets = datasets.filter((d: DatasetResult) => d.source === filterSource)
@@ -47,18 +45,18 @@ export function ResultsPage() {
 
       {/* Error */}
       {error && (
-        <div className="bg-error/10 border border-error/30 rounded-card p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-error shrink-0" />
-          <p className="text-sm text-error">{(error as Error).message}</p>
+        <div className="bg-ruby/5 border border-ruby/20 rounded-lg p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-ruby shrink-0" />
+          <p className="text-body-md text-ruby">{(error as Error).message}</p>
         </div>
       )}
 
       {/* Loading */}
       {isLoading && (
-        <div className="text-center py-16">
-          <div className="inline-flex items-center gap-3 text-body">
-            <div className="w-5 h-5 border-2 border-cta border-t-transparent rounded-full animate-spin" />
-            Searching 10 sources simultaneously...
+        <div className="text-center py-20">
+          <div className="inline-flex items-center gap-3 text-ink-secondary">
+            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-body-md">Searching 10 sources simultaneously...</span>
           </div>
         </div>
       )}
@@ -67,22 +65,22 @@ export function ResultsPage() {
       {data && !isLoading && (
         <>
           {/* Stats bar */}
-          <div className="flex flex-wrap items-center justify-between gap-4 text-sm text-body">
-            <div className="flex items-center gap-4">
-              <span className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-between gap-4 text-body-md text-ink-mute">
+            <div className="flex items-center gap-5">
+              <span className="flex items-center gap-1.5">
                 <Database className="w-4 h-4" />
-                {data.report.total_results_found} datasets found
+                <span className="tabular-nums">{data.report.total_results_found}</span> datasets found
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5">
                 <Clock className="w-4 h-4" />
-                {data.elapsed_ms}ms
+                <span className="tabular-nums">{data.elapsed_ms}</span>ms
               </span>
             </div>
             <div className="flex items-center gap-2">
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-                className="px-2 py-1 border border-hairline rounded-button text-xs bg-white"
+                className="px-3 py-1.5 border border-hairline-input rounded-sm text-body-md bg-white text-ink focus:outline-none focus:border-primary"
               >
                 <option value="score">By Score</option>
                 <option value="rows">By Size</option>
@@ -92,7 +90,7 @@ export function ResultsPage() {
                 <select
                   value={filterSource}
                   onChange={(e) => setFilterSource(e.target.value)}
-                  className="px-2 py-1 border border-hairline rounded-button text-xs bg-white"
+                  className="px-3 py-1.5 border border-hairline-input rounded-sm text-body-md bg-white text-ink focus:outline-none focus:border-primary"
                 >
                   <option value="all">All Sources</option>
                   {sources.map((s) => (
@@ -104,26 +102,26 @@ export function ResultsPage() {
           </div>
 
           {/* Summary */}
-          <p className="text-sm text-body bg-card border border-hairline rounded-card p-4">
+          <p className="text-body-md text-ink-secondary bg-canvas-soft border border-hairline rounded-lg p-5">
             {data.report.summary}
           </p>
 
           {/* Dataset grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {datasets.map((d: DatasetResult, i: number) => (
               <DatasetCard key={d.id} dataset={d} rank={i + 1} />
             ))}
           </div>
 
           {datasets.length === 0 && (
-            <div className="text-center py-16 text-muted">
-              No datasets match your filters.
+            <div className="text-center py-20 text-ink-mute">
+              <p className="text-body-lg">No datasets match your filters.</p>
             </div>
           )}
 
           {/* Hash proof */}
           {data.report.hash_proof && (
-            <div className="text-center text-xs text-muted font-mono mt-8">
+            <div className="text-center text-micro text-ink-mute font-mono pt-6">
               Proof: {data.report.hash_proof.slice(0, 16)}...
             </div>
           )}

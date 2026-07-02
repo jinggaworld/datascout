@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,5 +8,47 @@
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-weight: 300;
+    color: #0d253d;
+    font-feature-settings: 'ss01';
   }
+
+  /* Gradient mesh backdrop — Stripe-inspired atmospheric hero */
+  .gradient-mesh {
+    background: linear-gradient(
+      135deg,
+      #f5e9d4 0%,
+      #f9e4c8 15%,
+      #f0d5b8 25%,
+      #e8c8d8 35%,
+      #d4b8e8 45%,
+      #b8b8f0 55%,
+      #8888f0 65%,
+      #533afd 80%,
+      #ea2261 100%
+    );
+    opacity: 0.6;
+  }
+
+  .gradient-mesh-bg {
+    background:
+      radial-gradient(ellipse at 10% 20%, rgba(245,233,212,0.8) 0%, transparent 50%),
+      radial-gradient(ellipse at 30% 60%, rgba(249,107,238,0.4) 0%, transparent 40%),
+      radial-gradient(ellipse at 60% 30%, rgba(83,58,253,0.5) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 70%, rgba(234,34,97,0.3) 0%, transparent 40%),
+      radial-gradient(ellipse at 50% 10%, rgba(155,104,41,0.2) 0%, transparent 40%),
+      linear-gradient(135deg, #f5e9d4 0%, #ffffff 50%, #f6f9fc 100%);
+  }
+}
+
+/* Tabular figures for numeric content */
+.tabular-nums {
+  font-feature-settings: 'tnum';
+}
+
+/* Thin display type */
+.display-type {
+  font-weight: 300;
+  font-feature-settings: 'ss01';
 }
