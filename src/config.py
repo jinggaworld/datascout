@@ -5,15 +5,15 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # AI Backend: "groq" or "proxy" (ds2api)
-    ai_backend: str = "groq"
+    # AI Backend: "groq" or "proxy" (ds2api DeepSeek V4 Flash)
+    ai_backend: str = "proxy"
 
     # Groq AI (used when ai_backend="groq")
     groq_api_key: str = ""
     groq_model_primary: str = "llama-3.3-70b-versatile"
     groq_model_fallback: str = "llama-3.1-8b-instant"
 
-    # DS2API Proxy (used when ai_backend="proxy")
+    # DS2API Proxy — DeepSeek V4 Flash (default backend)
     proxy_base_url: str = "http://127.0.0.1:5001"
     proxy_api_key: str = ""
     proxy_model_primary: str = "deepseek-v4-flash"
