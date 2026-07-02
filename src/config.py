@@ -5,10 +5,19 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Groq AI
+    # AI Backend: "groq" or "proxy" (ds2api)
+    ai_backend: str = "groq"
+
+    # Groq AI (used when ai_backend="groq")
     groq_api_key: str = ""
     groq_model_primary: str = "llama-3.3-70b-versatile"
     groq_model_fallback: str = "llama-3.1-8b-instant"
+
+    # DS2API Proxy (used when ai_backend="proxy")
+    proxy_base_url: str = "http://127.0.0.1:5001"
+    proxy_api_key: str = ""
+    proxy_model_primary: str = "deepseek-v4-flash"
+    proxy_model_fallback: str = "deepseek-v4-flash-nothinking"
 
     # CAP Protocol
     cap_api_url: str = "https://api.croo.network"
@@ -40,11 +49,6 @@ class Settings(BaseSettings):
         "env_file_encoding": "utf-8",
         "extra": "ignore",
     }
-
-    def validate_api_keys(self) -> None:
-        """Validate that required API keys are set before making calls."""
-        if not self.groq_api_key:
-            raise ValueError("GROQ_API_KEY is required. Get one free at console.groq.com")
 
 
 @functools.lru_cache
