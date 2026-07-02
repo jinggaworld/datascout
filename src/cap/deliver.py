@@ -1,7 +1,6 @@
 import hashlib
 import json
 import logging
-import time
 from typing import Any
 
 from src.models.cap import CapDelivery

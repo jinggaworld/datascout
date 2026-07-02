@@ -43,12 +43,9 @@ def estimate_price(parsed_query: ParsedQuery) -> CapNegotiation:
     total = BASE_PRICE + source_cost + extras_cost
     estimated_time = max(10, source_count * 2 // 3)
 
-    description = (
-        f"Search {source_count} sources for '{parsed_query.topic}'"
-        f" | {len(extras)} extra filters"
-        if extras
-        else f"Search {source_count} sources for '{parsed_query.topic}'"
-    )
+    description = f"Search {source_count} sources for '{parsed_query.topic}'"
+    if extras:
+        description += f" | {len(extras)} extra filters"
 
     logger.info("Price estimate: %.4f USDC — %s", total, description)
 
