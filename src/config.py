@@ -19,11 +19,14 @@ class Settings(BaseSettings):
     proxy_model_primary: str = "deepseek-v4-flash"
     proxy_model_fallback: str = "deepseek-v4-flash-nothinking"
 
-    # CAP Protocol
+    # CAP Protocol — CROO Network
     cap_api_url: str = "https://api.croo.network"
     cap_ws_url: str = "wss://api.croo.network/ws"
     cap_agent_id: str = ""
     cap_agent_wallet: str = ""
+    cap_sdk_key: str = ""
+    cap_private_key: str = ""
+    cap_auto_connect: bool = True
 
     # Database (Cache)
     db_path: str = "datascout.db"

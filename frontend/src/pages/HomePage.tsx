@@ -1,13 +1,22 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Globe, Zap, Shield, BarChart3 } from 'lucide-react'
+import { Globe, Zap, Shield, BarChart3, Coins } from 'lucide-react'
 import { SearchBar } from '../components/SearchBar'
+import { getCapStatus, type CapStatus } from '../api'
 
 export function HomePage() {
   const navigate = useNavigate()
+  const [capStatus, setCapStatus] = useState<CapStatus | null>(null)
+
+  useEffect(() => {
+    getCapStatus().then(setCapStatus).catch(() => {})
+  }, [])
 
   const handleSearch = (query: string) => {
     navigate(`/results?q=${encodeURIComponent(query)}`)
   }
+
+  const crooConnected = capStatus?.connection?.connected ?? false
 
   return (
     <div>
@@ -31,6 +40,22 @@ export function HomePage() {
           </p>
         </div>
       </section>
+
+      {/* CROO Agent Store badge */}
+      {crooConnected && (
+        <section className="bg-primary/5 -mx-4 sm:-mx-6 lg:-mx-8 px-6 py-4">
+          <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-3 text-body-md">
+            <Coins className="w-5 h-5 text-primary" />
+            <span className="text-ink-secondary">
+              Available on <span className="font-semibold text-primary">CROO Agent Store</span>
+              {' '}&mdash; searches start at <span className="font-mono tabular-nums">0.01 USDC</span>
+            </span>
+            <span className="px-2 py-0.5 bg-primary text-on-primary rounded-pill text-micro-cap uppercase tracking-wider font-medium">
+              Live
+            </span>
+          </div>
+        </section>
+      )}
 
       {/* Features on canvas-soft */}
       <section className="bg-canvas-soft -mx-4 sm:-mx-6 lg:-mx-8 px-6 py-16 mt-0">

@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@croo-network/sdk": "^0.2.1"
+  }
+}

@@ -62,6 +62,40 @@ export interface SearchResponse {
   markdown: string
 }
 
+export interface CapStatus {
+  connection: {
+    connected: boolean
+    agent_id: string
+    wallet: string
+    ws_url: string
+    api_url: string
+    has_sdk_key: boolean
+  }
+  orders: {
+    total_orders: number
+    by_status: Record<string, number>
+  }
+  version: string
+}
+
+export interface NegotiationResult {
+  status: string
+  parsed_query: {
+    topic: string
+    domain: string
+    region: string | null
+  }
+  negotiation: {
+    base_price_usdc: number
+    source_count: number
+    source_cost_usdc: number
+    extras_cost_usdc: number
+    total_price_usdc: number
+    estimated_search_time_sec: number
+    description: string
+  }
+}
+
 export async function searchDatasets(query: string): Promise<SearchResponse> {
   const res = await fetch(`${API_BASE}/api/v1/search`, {
     method: 'POST',
@@ -72,5 +106,21 @@ export async function searchDatasets(query: string): Promise<SearchResponse> {
     const err = await res.json().catch(() => ({ detail: 'Search failed' }))
     throw new Error(err.detail || `HTTP ${res.status}`)
   }
+  return res.json()
+}
+
+export async function getCapStatus(): Promise<CapStatus> {
+  const res = await fetch(`${API_BASE}/api/v1/cap/status`)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  return res.json()
+}
+
+export async function negotiatePrice(query: string): Promise<NegotiationResult> {
+  const res = await fetch(`${API_BASE}/api/v1/cap/negotiate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
 }
