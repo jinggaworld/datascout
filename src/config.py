@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     # OpenRouter (default backend — Gemini models)
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_api_key: str = ""
-    openrouter_model_primary: str = "google/gemini-2.0-flash-001"
+    openrouter_model_primary: str = "google/gemini-2.5-flash-lite"
     openrouter_model_fallback: str = "google/gemini-2.5-flash"
 
     # Groq AI (used when ai_backend="groq")
