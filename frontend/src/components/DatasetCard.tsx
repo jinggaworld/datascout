@@ -1,5 +1,6 @@
 import { ExternalLink, FileText, Tag } from 'lucide-react'
 import type { DatasetResult } from '../api'
+import { stripHtml } from '../utils/html'
 
 interface DatasetCardProps {
   dataset: DatasetResult
@@ -28,7 +29,7 @@ export function DatasetCard({ dataset, rank, onClick }: DatasetCardProps) {
             </h3>
           </div>
           <p className="text-body-md text-ink-secondary line-clamp-2 mt-1">
-            {dataset.description || 'No description available'}
+            {stripHtml(dataset.description) || 'No description available'}
           </p>
         </div>
         <ScoreBadge score={score} grade={grade} />

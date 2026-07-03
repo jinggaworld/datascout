@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 from collections import Counter
 from datetime import datetime, timezone
 
@@ -230,9 +231,7 @@ Searched **{report.total_sources_searched}** sources, found **{report.total_resu
 - **License:** {license_name}
 - **Rows:** {rows_str}
 - **Format:** {d.file_format or 'N/A'}
-- **URL:** {d.source_url}
-
-{d.description[:200] if d.description else 'No description available.'}
+- **URL:** {d.source_url}        {re.sub(r'<[^>]*>', '', d.description)[:200] if d.description else 'No description available.'}
 
 """
 

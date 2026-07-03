@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ExternalLink, Download, FileText, Tag } from 'lucide-react'
 import { searchDatasets, type DatasetResult, type FinalReport } from '../api'
 import { ScoreBreakdown } from '../components/ScoreBreakdown'
+import { stripHtml } from '../utils/html'
 
 export function DatasetPage() {
   const datasetId = window.location.pathname.split('/').pop()
@@ -76,7 +77,7 @@ export function DatasetPage() {
       {/* Description */}
       <section>
         <h2 className="text-heading-lg text-ink mb-3">Description</h2>
-        <p className="text-body-md text-ink-secondary leading-relaxed">{dataset.description || 'No description available.'}</p>
+        <p className="text-body-md text-ink-secondary leading-relaxed">{stripHtml(dataset.description) || 'No description available.'}</p>
       </section>
 
       {/* Score Breakdown */}
