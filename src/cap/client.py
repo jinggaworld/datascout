@@ -1,6 +1,9 @@
 """Production WebSocket client for CROO CAP Protocol.
 
-Handles: connect, auto-reconnect, order lifecycle, delivery submission.
+Matches the CROO SDK EventStream protocol:
+- WebSocket connects with sdkKey as query parameter
+- Handles event types: negotiation_created, order.paid, order.delivered, order.cleared
+- REST API calls for accept_negotiation, deliver_order
 """
 
 import asyncio
@@ -8,6 +11,7 @@ import json
 import logging
 from typing import Any, Callable, Optional
 
+import httpx
 import websockets
 from websockets.exceptions import ConnectionClosed
 
@@ -25,6 +29,7 @@ class CapClient:
         self.api_url = settings.cap_api_url
         self.agent_id = settings.cap_agent_id
         self.sdk_key = settings.cap_sdk_key
+        self.wallet = settings.cap_agent_wallet
         self._ws: Any = None
         self._connected = False
         self._listen_task: Optional[asyncio.Task] = None
@@ -39,20 +44,20 @@ class CapClient:
         self._message_handlers.append(handler)
 
     async def connect(self) -> bool:
-        """Connect to CAP WebSocket endpoint with auth headers."""
-        if not self.agent_id:
-            logger.warning("CAP_AGENT_ID not set — cannot connect to CROO")
+        """Connect to CAP WebSocket with sdkKey as query parameter.
+
+        The CROO EventStream expects: wsURL + /ws?sdkKey=xxx
+        """
+        if not self.sdk_key:
+            logger.warning("CAP_SDK_KEY not set — cannot connect to CROO")
             return False
 
-        headers = {"X-Agent-ID": self.agent_id}
-        if self.sdk_key:
-            headers["X-SDK-Key"] = self.sdk_key
-            headers["Authorization"] = f"Bearer {self.sdk_key}"
+        # Build WebSocket URL with sdkKey as query parameter (per SDK protocol)
+        ws_url = f"{self.ws_url}?sdkKey={self.sdk_key}"
 
         try:
             self._ws = await websockets.connect(
-                self.ws_url,
-                additional_headers=headers,
+                ws_url,
                 ping_interval=30,
                 ping_timeout=10,
                 close_timeout=5,
@@ -89,14 +94,29 @@ class CapClient:
         try:
             async for message in self._ws:
                 data = json.loads(message)
-                msg_type = data.get("type", "unknown")
-                logger.info("Received CROO message: type=%s", msg_type)
+
+                # CROO EventStream wraps events in {data: {...}} envelope
+                if "data" in data:
+                    event = data["data"]
+                else:
+                    event = data
+
+                event_type = event.get("type", "unknown")
+                negotiation_id = event.get("negotiation_id", "")
+                order_id = event.get("order_id", "")
+
+                logger.info(
+                    "CROO event: type=%s, negotiation=%s, order=%s",
+                    event_type,
+                    negotiation_id,
+                    order_id,
+                )
 
                 for handler in self._message_handlers:
                     try:
-                        await handler(data)
+                        await handler(event)
                     except Exception as e:
-                        logger.error("Handler error for %s: %s", msg_type, e)
+                        logger.error("Handler error for %s: %s", event_type, e)
         except ConnectionClosed as e:
             logger.warning("CROO connection closed: code=%s", e.code)
             self._connected = False
@@ -139,30 +159,114 @@ class CapClient:
                 self._listen_task.add_done_callback(self._on_listen_done)
                 return
 
+    # ------------------------------------------------------------------
+    # REST API operations (per CROO SDK AgentClient)
+    # ------------------------------------------------------------------
+
+    def _api_headers(self) -> dict[str, str]:
+        return {
+            "Content-Type": "application/json",
+            "X-SDK-Key": self.sdk_key,
+        }
+
+    async def accept_negotiation(
+        self, negotiation_id: str, provider_fund_address: str = ""
+    ) -> dict[str, Any]:
+        """Accept a negotiation (provider side) via REST API."""
+        payload: dict[str, Any] = {}
+        if provider_fund_address:
+            payload["provider_fund_address"] = provider_fund_address
+
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(
+                    f"{self.api_url}/backend/v1/orders/negotiate/{negotiation_id}/accept",
+                    json=payload,
+                    headers=self._api_headers(),
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                logger.info("Negotiation accepted: %s", negotiation_id)
+                return data
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                "Accept negotiation failed (%d): %s",
+                e.response.status_code,
+                e.response.text[:200],
+            )
+            return {"error": str(e), "status_code": e.response.status_code}
+        except Exception as e:
+            logger.error("Accept negotiation error: %s", e)
+            return {"error": str(e)}
+
+    async def deliver_order(
+        self,
+        order_id: str,
+        content: dict[str, Any],
+        deliverable_type: str = "json",
+    ) -> dict[str, Any]:
+        """Submit delivery for an order via REST API."""
+        payload = {
+            "content": content,
+            "deliverable_type": deliverable_type,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(
+                    f"{self.api_url}/backend/v1/orders/{order_id}/deliver",
+                    json=payload,
+                    headers=self._api_headers(),
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                logger.info("Order delivered: %s", order_id)
+                return data
+        except httpx.HTTPStatusError as e:
+            logger.error(
+                "Deliver order failed (%d): %s",
+                e.response.status_code,
+                e.response.text[:200],
+            )
+            return {"error": str(e), "status_code": e.response.status_code}
+        except Exception as e:
+            logger.error("Deliver order error: %s", e)
+            return {"error": str(e)}
+
+    async def get_order(self, order_id: str) -> dict[str, Any]:
+        """Get order details via REST API."""
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    f"{self.api_url}/backend/v1/orders/{order_id}",
+                    headers=self._api_headers(),
+                )
+                resp.raise_for_status()
+                return resp.json()
+        except Exception as e:
+            logger.error("Get order error: %s", e)
+            return {"error": str(e)}
+
+    async def get_negotiation(self, negotiation_id: str) -> dict[str, Any]:
+        """Get negotiation details via REST API."""
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(
+                    f"{self.api_url}/backend/v1/orders/negotiate/{negotiation_id}",
+                    headers=self._api_headers(),
+                )
+                resp.raise_for_status()
+                return resp.json()
+        except Exception as e:
+            logger.error("Get negotiation error: %s", e)
+            return {"error": str(e)}
+
     async def send(self, message: dict[str, Any]) -> None:
-        """Send a message to CROO network."""
+        """Send a raw message to CROO WebSocket."""
         if not self._connected or not self._ws:
             raise RuntimeError("Not connected to CROO network")
         await self._ws.send(json.dumps(message))
         logger.info("Sent CROO message: type=%s", message.get("type"))
-
-    async def submit_delivery(self, delivery: dict[str, Any]) -> dict[str, Any]:
-        """Submit delivery proof to CROO network."""
-        try:
-            await self.send({"type": "delivery", "payload": delivery})
-            return {"status": "submitted", "order_id": delivery.get("order_id")}
-        except Exception as e:
-            logger.error("Failed to submit delivery: %s", e)
-            return {"status": "error", "error": str(e)}
-
-    async def acknowledge_clear(self, order_id: str) -> dict[str, Any]:
-        """Acknowledge settlement clearance."""
-        try:
-            await self.send({"type": "clear_ack", "order_id": order_id})
-            return {"status": "acknowledged", "order_id": order_id}
-        except Exception as e:
-            logger.error("Failed to acknowledge clear: %s", e)
-            return {"status": "error", "error": str(e)}
 
     @property
     def is_connected(self) -> bool:

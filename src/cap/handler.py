@@ -1,4 +1,4 @@
-"""Order handler: receive CAP order → run pipeline → deliver → clear."""
+"""Order handler: receive CAP order -> run pipeline -> deliver -> clear."""
 
 import asyncio
 import logging
@@ -63,7 +63,6 @@ class OrderHandler:
     def _build_query(self, data: dict[str, Any]) -> ParsedQuery:
         """Construct ParsedQuery from order query_data."""
         if "query" in data:
-            # Will be handled by the parser in process_order
             return ParsedQuery(topic="pending", domain="other")
         if "topic" in data:
             from src.models.query import LicenseFilter
@@ -79,14 +78,16 @@ class OrderHandler:
                 license=lic,
                 min_rows=data.get("min_rows"),
             )
-        raise ValueError(f"Invalid query_data: must contain 'query' or 'topic', got: {list(data.keys())}")
+        raise ValueError(
+            f"Invalid query_data: must contain 'query' or 'topic', got: {list(data.keys())}"
+        )
 
     async def process_order(
         self,
         order: CapOrder,
         cap_client: Any = None,
     ) -> dict[str, Any]:
-        """Full order lifecycle: lock → search pipeline → deliver → clear.
+        """Full order lifecycle: lock -> search pipeline -> deliver -> clear.
 
         Returns the final settlement result.
         """
@@ -143,10 +144,27 @@ class OrderHandler:
 
             order.status = CapOrderStatus.DELIVERED
 
-            # 9. Submit delivery to CROO
+            # 9. Submit delivery to CROO via REST API
             if cap_client and cap_client.is_connected:
-                await cap_client.submit_delivery(delivery.model_dump())
-                logger.info("Delivery submitted to CROO for order %s", order.order_id)
+                from src.report.generator import generate_markdown
+
+                result = await cap_client.deliver_order(
+                    order_id=order.order_id,
+                    content={
+                        "report": report.model_dump(),
+                        "markdown": generate_markdown(report),
+                        "datasets_found": delivery.datasets_found,
+                        "sources_searched": delivery.sources_searched,
+                        "execution_time_ms": elapsed_ms,
+                        "hash_proof": delivery.hash_proof,
+                    },
+                    deliverable_type="json",
+                )
+                logger.info(
+                    "Delivery submitted to CROO for order %s: %s",
+                    order.order_id,
+                    result.get("status", "unknown"),
+                )
 
             # 10. Clear / settle
             settlement = await process_clear(
@@ -156,13 +174,6 @@ class OrderHandler:
             )
 
             order.status = CapOrderStatus.COMPLETED
-
-            # 11. Acknowledge clear on CROO (best-effort)
-            if cap_client and cap_client.is_connected:
-                try:
-                    await cap_client.acknowledge_clear(order.order_id)
-                except Exception as e:
-                    logger.warning("Clear ack failed for %s: %s", order.order_id, e)
 
             logger.info(
                 "Order %s completed: %d datasets, %.4f USDC, %dms",
@@ -204,13 +215,18 @@ class OrderHandler:
             f"ord-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
         )
 
+        # Extract query data from CROO event payload
+        query_data = order_data.get("query_data", {})
+        if not query_data:
+            # Try common CROO payload structures
+            query_data = order_data.get("input", order_data.get("request", {}))
+        if not query_data:
+            query_data = order_data
+
         # Estimate price if not provided
-        query_data = order_data.get("query_data", order_data)
         price = order_data.get("price_usdc")
         if price is None:
             try:
-                parser = self._get_parser()
-                # Build a quick parsed query for estimation
                 parsed = self._build_query(query_data)
                 negotiation = estimate_price(parsed)
                 price = negotiation.total_price_usdc
@@ -219,7 +235,10 @@ class OrderHandler:
 
         order = CapOrder(
             order_id=order_id,
-            buyer_wallet=order_data.get("buyer_wallet", "0x0000"),
+            buyer_wallet=order_data.get(
+                "buyer_wallet",
+                order_data.get("requester_wallet", "0x0000"),
+            ),
             agent_id=settings.cap_agent_id or "datascout-agent-001",
             capability="dataset_search",
             query_data=query_data,

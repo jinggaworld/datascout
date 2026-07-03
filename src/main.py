@@ -86,33 +86,77 @@ def _build_parsed_query(data: dict[str, Any]) -> ParsedQuery:
 # CAP order handler — called by WebSocket listener
 # ---------------------------------------------------------------------------
 
-async def _on_cap_order(message: dict[str, Any]) -> None:
-    """Handle incoming CAP order events from CROO WebSocket."""
-    msg_type = message.get("type", "")
+async def _on_cap_order(event: dict[str, Any]) -> None:
+    """Handle incoming CROO CAP Protocol events.
 
-    if msg_type == "order.locked":
-        order_data = message.get("payload", message)
-        order = _order_handler.create_order(order_data)
-        logger.info("CAP order locked: %s — processing...", order.order_id)
+    CROO EventStream event types:
+    - negotiation_created: buyer initiated an order (accept to proceed)
+    - negotiation_accepted: negotiation terms agreed
+    - order.paid: buyer has paid (escrow locked)
+    - order.delivered: delivery confirmed by provider
+    - order.cleared: settlement completed
+    - order.cancelled: order was cancelled
+    """
+    event_type = event.get("type", "")
+    negotiation_id = event.get("negotiation_id", "")
+    order_id = event.get("order_id", "")
 
-        # Process in background so WebSocket listener isn't blocked
+    if event_type == "negotiation_created":
+        logger.info(
+            "CROO: negotiation created — id=%s, service=%s",
+            negotiation_id,
+            event.get("service_id", "unknown"),
+        )
+        # Accept the negotiation to proceed with the order
         asyncio.create_task(
-            _order_handler.process_order(order, cap_client=_cap_client)
+            _handle_negotiation(event, negotiation_id)
         )
 
-    elif msg_type == "order.cancelled":
-        order_id = message.get("order_id") or message.get("payload", {}).get("order_id")
-        if order_id:
-            order = _order_handler.get_order(order_id)
-            if order:
-                order.status = CapOrderStatus.FAILED
-                logger.info("CAP order cancelled: %s", order_id)
+    elif event_type == "order.paid":
+        logger.info("CROO: order paid — id=%s", order_id)
+        # Process the order after payment confirmation
+        asyncio.create_task(
+            _handle_paid_order(event, order_id)
+        )
 
-    elif msg_type == "ping":
-        await _cap_client.send({"type": "pong"})
+    elif event_type == "order.cancelled":
+        logger.info("CROO: order cancelled — id=%s", order_id)
+        order = _order_handler.get_order(order_id)
+        if order:
+            order.status = CapOrderStatus.FAILED
+
+    elif event_type == "ping":
+        pass  # Handled by websockets library
 
     else:
-        logger.debug("Unhandled CROO message type: %s", msg_type)
+        logger.debug("Unhandled CROO event type: %s", event_type)
+
+
+async def _handle_negotiation(event: dict[str, Any], negotiation_id: str) -> None:
+    """Accept a CROO negotiation and wait for payment."""
+    try:
+        # Accept negotiation with our wallet address as provider fund
+        result = await _cap_client.accept_negotiation(
+            negotiation_id=negotiation_id,
+            provider_fund_address=get_settings().cap_agent_wallet,
+        )
+        logger.info("Negotiation %s accepted: %s", negotiation_id, result)
+    except Exception as e:
+        logger.error("Failed to accept negotiation %s: %s", negotiation_id, e)
+
+
+async def _handle_paid_order(event: dict[str, Any], order_id: str) -> None:
+    """Process a paid CROO order through the full pipeline."""
+    # Create order from event data
+    order = _order_handler.create_order({
+        "order_id": order_id,
+        **event.get("payload", event),
+    })
+    logger.info("Processing paid order %s — running search pipeline...", order.order_id)
+
+    # Process through the full pipeline
+    result = await _order_handler.process_order(order, cap_client=_cap_client)
+    logger.info("Order %s result: %s", order.order_id, result.get("status"))
 
 
 # Register the handler
