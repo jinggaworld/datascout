@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://github.com/jinggaworld/datascout">
-    <img src="https://png.pngtree.com/png-clipart/20221118/ourmid/pngtree-stylish-ripped-torn-paper-texture-background-transparent-png-image_6466634.png" alt="DataScout Logo" width="120" />
+    <img src="https://raw.githubusercontent.com/jinggaworld/jingga-assets/9ab53a58950e885ba2cee344b7adf63771dc17a7/DataScout-removebg-preview.png" alt="DataScout Logo" width="120" />
   </a>
 </p>
 
@@ -11,15 +11,16 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-0.2.0-blue?style=for-the-badge" alt="Version" />
+  <img src="https://img.shields.io/badge/version-0.3.0-blue?style=for-the-badge" alt="Version" />
   <img src="https://img.shields.io/badge/python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License" />
   <img src="https://img.shields.io/badge/CROO-Hackathon-orange?style=for-the-badge" alt="CROO Hackathon" />
-  <img src="https://img.shields.io/badge/Groq-LLM-purple?style=for-the-badge&logo=groq&logoColor=white" alt="Groq" />
+  <img src="https://img.shields.io/badge/OpenRouter-Gemini-blue?style=for-the-badge" alt="OpenRouter" />
 </p>
 
 <p align="center">
   <a href="#features">Features</a> &bull;
+  <a href="#demo">Demo</a> &bull;
   <a href="#architecture">Architecture</a> &bull;
   <a href="#quick-start">Quick Start</a> &bull;
   <a href="#data-sources">Data Sources</a> &bull;
@@ -42,7 +43,7 @@ Parallel search across **10+ dataset sources** simultaneously -- HuggingFace, Ka
 <td>
 
 ### AI-Powered Query Understanding
-Natural language understanding via **Groq API (Llama 3.3 70B)** -- free, ultra-fast, JSON structured output. Supports Indonesian & English.
+Natural language understanding via **OpenRouter (Gemini 2.5 Flash Lite)** -- 1M context, cost-effective, JSON structured output. Supports Indonesian & English.
 
 </td>
 </tr>
@@ -78,56 +79,55 @@ Full **FinalReport** with ranked datasets, comparison table, APA citations, down
 
 ---
 
+## Demo
+
+> [![Watch Demo Video](https://img.shields.io/badge/Watch-Demo_Video-red?style=for-the-badge&logo=youtube&logoColor=white)](https://youtu.be/vFz-YvFlrpY)
+
 ## Architecture
 
-```
-+-------------------------------------------------------+
-|                  User / Agent                          |
-|        "find climate datasets for Southeast Asia"      |
-+--------------------------+----------------------------+
-                           |
-                           v
-+-------------------------------------------------------+
-|           AI Query Parser (Groq / Llama 3.3 70B)       |
-|    Natural language -> Structured ParsedQuery           |
-|    topic, keywords, region, domain, filters             |
-+--------------------------+----------------------------+
-                           |
-              +------------+------------+
-              v            v            v
-      +----------+  +----------+  +----------+
-      |HuggingFace|  |  Kaggle  |  |  Zenodo  |  ... 10+ adapters
-      +----+-----+  +----+-----+  +----+-----+
-           |             |             |
-           +-------------+-------------+
-                           v
-+-------------------------------------------------------+
-|           Deduplication Engine                         |
-|    Union-Find + fuzzy title matching + URL dedup        |
-+--------------------------+----------------------------+
-                           v
-+-------------------------------------------------------+
-|           Ranking Engine                               |
-|    keyword 45% + freshness 15% + size 15%              |
-|    + docs 15% + source 10%                             |
-+--------------------------+----------------------------+
-                           v
-+-------------------------------------------------------+
-|           License Extractor                            |
-|    13 license types, priority-based detection           |
-+--------------------------+----------------------------+
-                           v
-+-------------------------------------------------------+
-|           Readiness Scorer                             |
-|    completeness + freshness + size + docs + license     |
-|    Auto-grade: A(>=80) B(>=60) C(>=40) D(>=20) F(<20)  |
-+--------------------------+----------------------------+
-                           v
-+-------------------------------------------------------+
-|           Report Generator                             |
-|    FinalReport + citations + manifest + markdown        |
-|    + hash proof + comparison table                      |
-+-------------------------------------------------------+
+```mermaid
+flowchart TD
+    A["User / Agent: \"find climate datasets for Southeast Asia\""] --> B{Input Type?}
+    B -->|Natural Language| C["AI Query Parser\nGemini 2.5 Flash Lite\n1M context, $0.10/1M tokens"]
+    B -->|Structured JSON| D["Direct Parameters\n(from other agents)"]
+    
+    C --> E["Parallel Search\n10+ Adapters"]
+    D --> E
+    
+    E --> F1["HuggingFace"]
+    E --> F2["Kaggle"]
+    E --> F3["OpenML"]
+    E --> F4["Zenodo"]
+    E --> F5["data.gov"]
+    E --> F6["World Bank"]
+    E --> F7["FRED"]
+    E --> F8["NOAA"]
+    E --> F9["OpenAQ"]
+    E --> F10["arXiv"]
+    
+    F1 --> G["Deduplication Engine\nUnion-Find + Fuzzy Matching"]
+    F2 --> G
+    F3 --> G
+    F4 --> G
+    F5 --> G
+    F6 --> G
+    F7 --> G
+    F8 --> G
+    F9 --> G
+    F10 --> G
+    
+    G --> H["Ranking Engine\nkeyword 45% + freshness 15%\n+ size 15% + docs 15% + license 10%"]
+    
+    H --> I["License Extractor\n13 types: CC0, CC-BY, MIT, Apache..."]
+    
+    I --> J["Readiness Scorer\n5 components, auto-graded A–F"]
+    
+    J --> K["Report Generator\nMarkdown + JSON + Citations + Manifest"]
+    
+    K --> L{"Delivery Mode?"}
+    L -->|CROO Agent Store| M["CAP Protocol\nDeliver + Hash Proof"]
+    L -->|Direct API| N["JSON Response"]
+    L -->|Web UI| O["React Frontend\nPreview + Download"]
 ```
 
 ---
@@ -138,7 +138,7 @@ Full **FinalReport** with ranked datasets, comparison table, APA citations, down
 
 - **Python 3.11+**
 - **Node.js 18+** (for frontend)
-- **Groq API Key** (free at [console.groq.com](https://console.groq.com))
+- **OpenRouter API Key** (get at [openrouter.ai/keys](https://openrouter.ai/keys))
 
 ### 1. Clone & Setup
 
@@ -165,11 +165,11 @@ cd frontend && npm install && cd ..
 cp .env.example .env
 ```
 
-Edit `.env` and add your Groq API key:
+Edit `.env` and add your OpenRouter API key:
 
 ```env
-AI_BACKEND=groq
-GROQ_API_KEY=gsk_your_key_here
+AI_BACKEND=openrouter
+OPENROUTER_API_KEY=sk-or-v1-your_key_here
 ```
 
 ### 4. Run the Server
@@ -296,7 +296,7 @@ GET /health
 </tr>
 <tr>
 <td><b>AI Brain</b></td>
-<td>Groq API -- Llama 3.3 70B (free, &lt;100ms latency)</td>
+<td>OpenRouter -- Gemini 2.5 Flash Lite (1M context, $0.10/1M tokens)</td>
 </tr>
 <tr>
 <td><b>Search</b></td>
@@ -402,12 +402,20 @@ datascout/
 
 DataScout is a **paid, callable agent** on the CROO Agent Protocol:
 
-```
-1. Negotiation  ->  Estimate price based on query complexity
-2. Lock          ->  Escrow USDC payment
-3. Search        ->  Execute full pipeline
-4. Deliver       ->  Report + JSON + hash proof
-5. Clear         ->  Settlement + reputation update
+```mermaid
+sequenceDiagram
+    participant Buyer
+    participant CROO
+    participant DataScout
+
+    Buyer->>CROO: Hire DataScout
+    CROO->>DataScout: Negotiation (price estimate)
+    Buyer->>CROO: Pay USDC
+    CROO->>DataScout: Order paid
+    DataScout->>DataScout: Execute search pipeline
+    DataScout->>CROO: Deliver report + hash proof
+    CROO->>Buyer: Receive results
+    CROO->>DataScout: Clear (settlement + reputation)
 ```
 
 ---
