@@ -53,7 +53,8 @@ class CapClient:
             return False
 
         # Build WebSocket URL with sdkKey as query parameter (per SDK protocol)
-        ws_url = f"{self.ws_url}?sdkKey={self.sdk_key}"
+        # SDK uses 'key' as the query parameter name
+        ws_url = f"{self.ws_url}?key={self.sdk_key}"
 
         try:
             self._ws = await websockets.connect(
