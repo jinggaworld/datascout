@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { ArrowLeft, ExternalLink, Download, FileText, Tag } from 'lucide-react'
 import { searchDatasets, type DatasetResult, type FinalReport } from '../api'
 import { ScoreBreakdown } from '../components/ScoreBreakdown'
 import { stripHtml } from '../utils/html'
+import { DownloadModal } from '../components/DownloadModal'
 
 export function DatasetPage() {
   const datasetId = window.location.pathname.split('/').pop()
@@ -40,6 +42,7 @@ export function DatasetPage() {
   }
 
   const citation = report?.citations?.find((c) => c.dataset_id === dataset.id)
+  const [showDownload, setShowDownload] = useState(false)
 
   return (
     <div className="max-w-4xl mx-auto space-y-10">
@@ -146,17 +149,26 @@ export function DatasetPage() {
           View Source <ExternalLink className="w-3.5 h-3.5" />
         </a>
         {dataset.download_url && (
-          <a
-            href={dataset.download_url}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={() => setShowDownload(true)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-on-primary rounded-pill text-body-md hover:bg-primary-press transition-colors"
           >
             <Download className="w-3.5 h-3.5" />
             Download Dataset
-          </a>
+          </button>
         )}
       </section>
+
+      {/* Download Modal */}
+      {showDownload && (
+        <DownloadModal
+          datasetId={dataset.id}
+          datasetTitle={dataset.title}
+          sourceUrl={dataset.source_url}
+          isOpen={showDownload}
+          onClose={() => setShowDownload(false)}
+        />
+      )}
 
       {/* Proof */}
       <div className="text-center text-micro text-ink-mute font-mono pt-6 border-t border-hairline">

@@ -1,6 +1,8 @@
-import { ExternalLink, FileText, Tag } from 'lucide-react'
+import { useState } from 'react'
+import { ExternalLink, FileText, Tag, Download } from 'lucide-react'
 import type { DatasetResult } from '../api'
 import { stripHtml } from '../utils/html'
+import { DownloadModal } from './DownloadModal'
 
 interface DatasetCardProps {
   dataset: DatasetResult
@@ -9,6 +11,7 @@ interface DatasetCardProps {
 }
 
 export function DatasetCard({ dataset, rank, onClick }: DatasetCardProps) {
+  const [showDownload, setShowDownload] = useState(false)
   const score = dataset.readiness_score?.total ?? 0
   const grade = dataset.readiness_score?.grade ?? 'N/A'
   const license = dataset.license_status?.license_name ?? 'Unknown'
@@ -79,17 +82,24 @@ export function DatasetCard({ dataset, rank, onClick }: DatasetCardProps) {
           View Source <ExternalLink className="w-3 h-3" />
         </a>
         {dataset.download_url && (
-          <a
-            href={dataset.download_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-caption text-success hover:text-success/80 transition-colors"
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowDownload(true) }}
+            className="text-caption text-success hover:text-success/80 transition-colors inline-flex items-center gap-1"
           >
+            <Download className="w-3 h-3" />
             Download
-          </a>
+          </button>
         )}
       </div>
+      {showDownload && (
+        <DownloadModal
+          datasetId={dataset.id}
+          datasetTitle={dataset.title}
+          sourceUrl={dataset.source_url}
+          isOpen={showDownload}
+          onClose={() => setShowDownload(false)}
+        />
+      )}
     </div>
   )
 }

@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.cap.clear import process_clear
@@ -455,6 +455,100 @@ async def clear_order(order_id: str) -> dict[str, Any]:
     order.status = CapOrderStatus.COMPLETED
     logger.info("Order cleared: %s — payment=%.4f USDC", order_id, order.price_usdc)
     return {"status": "success", "settlement": settlement.model_dump()}
+
+
+
+# ---------------------------------------------------------------------------
+# Dataset Preview & Download
+# ---------------------------------------------------------------------------
+
+@app.get("/api/v1/datasets/{dataset_id}/preview")
+async def preview_dataset(dataset_id: str) -> dict[str, Any]:
+    """Fetch and preview dataset data from its source API."""
+    # We need to resolve the download_url from the dataset_id
+    # The dataset_id format is {source}-{indicator_id} e.g. wb-AG.CON.FERT.PT.ZS
+    # We look it up from a cached search or reconstruct the URL
+    from src.download import fetch_source_data
+
+    # Try to find download_url from recent search results or reconstruct
+    download_url = _resolve_download_url(dataset_id)
+    if not download_url:
+        raise HTTPException(status_code=404, detail=f"Cannot resolve download URL for dataset {dataset_id}")
+
+    data = await fetch_source_data(download_url, dataset_id.split("-")[0])
+    return {
+        "status": "success",
+        "dataset_id": dataset_id,
+        "download_url": download_url,
+        "columns": data["columns"],
+        "rows": data["rows"][:50],  # preview: max 50 rows
+        "total_rows": data["total_rows"],
+    }
+
+
+@app.get("/api/v1/datasets/{dataset_id}/download")
+async def download_dataset(dataset_id: str, format: str = "csv") -> Response:
+    """Download dataset as CSV or JSON file."""
+    from src.download import fetch_source_data, rows_to_csv, rows_to_json
+
+    download_url = _resolve_download_url(dataset_id)
+    if not download_url:
+        raise HTTPException(status_code=404, detail=f"Cannot resolve download URL for dataset {dataset_id}")
+
+    data = await fetch_source_data(download_url, dataset_id.split("-")[0])
+
+    if format == "json":
+        content = rows_to_json(data["columns"], data["rows"], data["total_rows"])
+        media_type = "application/json"
+        ext = "json"
+    else:
+        content = rows_to_csv(data["columns"], data["rows"])
+        media_type = "text/csv"
+        ext = "csv"
+
+    filename = f"{dataset_id}.{ext}"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
+def _resolve_download_url(dataset_id: str) -> str | None:
+    """Resolve a dataset_id to its source download URL.
+
+    Known formats:
+    - wb-{indicator_id} → World Bank API
+    - hf-{dataset_id} → HuggingFace
+    - kaggle-{ref} → Kaggle
+    - fred-{series_id} → FRED
+    - zenodo-{record_id} → Zenodo
+    - arxiv-{paper_id} → arXiv
+    """
+    parts = dataset_id.split("-", 1)
+    if len(parts) < 2:
+        return None
+
+    source, raw_id = parts[0], parts[1]
+
+    if source == "wb":
+        return f"https://api.worldbank.org/v2/country/all/indicator/{raw_id}?format=json&per_page=100"
+    elif source == "hf":
+        return f"https://huggingface.co/datasets/{raw_id}/resolve/main/data"
+    elif source == "kaggle":
+        return f"https://www.kaggle.com/api/v1/datasets/download/{raw_id}"
+    elif source == "fred":
+        return f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={raw_id}"
+    elif source == "zenodo":
+        return f"https://zenodo.org/api/records/{raw_id}"
+    elif source == "arxiv":
+        return f"https://arxiv.org/pdf/{raw_id}"
+    elif source == "openml":
+        return f"https://www.openml.org/api/v1/json/data/{raw_id}"
+
+    return None
 
 
 if __name__ == "__main__":

@@ -124,3 +124,29 @@ export async function negotiatePrice(query: string): Promise<NegotiationResult> 
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.json()
 }
+
+// ---------------------------------------------------------------------------
+// Dataset Preview & Download
+// ---------------------------------------------------------------------------
+
+export interface PreviewData {
+  status: string
+  dataset_id: string
+  download_url: string
+  columns: { name: string; type: string }[]
+  rows: Record<string, unknown>[]
+  total_rows: number
+}
+
+export async function getDatasetPreview(datasetId: string): Promise<PreviewData> {
+  const res = await fetch(`${API_BASE}/api/v1/datasets/${encodeURIComponent(datasetId)}/preview`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Preview failed' }))
+    throw new Error(err.detail || `HTTP ${res.status}`)
+  }
+  return res.json()
+}
+
+export function getDatasetDownloadUrl(datasetId: string, format: 'csv' | 'json' = 'csv'): string {
+  return `${API_BASE}/api/v1/datasets/${encodeURIComponent(datasetId)}/download?format=${format}`
+}
