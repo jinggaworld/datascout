@@ -1,12 +1,21 @@
 import functools
 from typing import Optional
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     # AI Backend: "openrouter" or "groq"
     ai_backend: str = "openrouter"
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_backend(cls, values: dict) -> dict:
+        """Map legacy 'proxy' backend to 'openrouter'."""
+        if values.get("ai_backend") == "proxy":
+            values["ai_backend"] = "openrouter"
+        return values
 
     # OpenRouter (default backend — Gemini models)
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
