@@ -10,9 +10,9 @@ logger = logging.getLogger(__name__)
 
 
 class GroqClient:
-    """Reusable AI client with support for both Groq and DS2API proxy backends.
+    """Reusable AI client with support for OpenRouter and Groq backends.
 
-    When ai_backend="proxy", uses AsyncOpenAI pointed at ds2api endpoint.
+    When ai_backend="openrouter", uses AsyncOpenAI pointed at OpenRouter (default).
     When ai_backend="groq", uses AsyncOpenAI pointed at Groq API.
     Both use the same OpenAI-compatible interface.
     """
@@ -21,13 +21,13 @@ class GroqClient:
         settings = get_settings()
         self.backend = settings.ai_backend
 
-        if self.backend == "proxy":
+        if self.backend == "openrouter":
             self.client = AsyncOpenAI(
-                base_url=settings.proxy_base_url,
-                api_key=settings.proxy_api_key,
+                base_url=settings.openrouter_base_url,
+                api_key=settings.openrouter_api_key,
             )
-            self.primary_model = settings.proxy_model_primary
-            self.fallback_model = settings.proxy_model_fallback
+            self.primary_model = settings.openrouter_model_primary
+            self.fallback_model = settings.openrouter_model_fallback
         else:
             self.client = AsyncOpenAI(
                 base_url="https://api.groq.com/openai/v1",

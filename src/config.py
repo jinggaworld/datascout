@@ -5,19 +5,19 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # AI Backend: "groq" or "proxy" (ds2api DeepSeek V4 Flash)
-    ai_backend: str = "proxy"
+    # AI Backend: "openrouter" or "groq"
+    ai_backend: str = "openrouter"
+
+    # OpenRouter (default backend — Gemini models)
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_api_key: str = ""
+    openrouter_model_primary: str = "google/gemini-2.0-flash-001"
+    openrouter_model_fallback: str = "google/gemini-2.5-flash"
 
     # Groq AI (used when ai_backend="groq")
     groq_api_key: str = ""
     groq_model_primary: str = "llama-3.3-70b-versatile"
     groq_model_fallback: str = "llama-3.1-8b-instant"
-
-    # DS2API Proxy — DeepSeek V4 Flash (default backend)
-    proxy_base_url: str = "http://127.0.0.1:5001"
-    proxy_api_key: str = ""
-    proxy_model_primary: str = "deepseek-v4-flash"
-    proxy_model_fallback: str = "deepseek-v4-flash-nothinking"
 
     # CAP Protocol — CROO Network
     cap_api_url: str = "https://api.croo.network"
