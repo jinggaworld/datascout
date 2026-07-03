@@ -47,8 +47,8 @@ export function HomePage() {
           <div className="max-w-[1200px] mx-auto flex items-center justify-center gap-3 text-body-md">
             <Coins className="w-5 h-5 text-primary" />
             <span className="text-ink-secondary">
-              Available on <span className="font-semibold text-primary">CROO Agent Store</span>
-              {' '}&mdash; searches start at <span className="font-mono tabular-nums">0.01 USDC</span>
+              Available on <span className="font-semibold text-primary">CROO Agent Store</span>,
+              {' '}searches start at <span className="font-mono tabular-nums">0.01 USDC</span>
             </span>
             <span className="px-2 py-0.5 bg-primary text-on-primary rounded-pill text-micro-cap uppercase tracking-wider font-medium">
               Live

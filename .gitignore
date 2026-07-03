@@ -7,3 +7,5 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 .pytest_cache/
+goals/
+croo-setup.js
