@@ -9,3 +9,5 @@ frontend/dist/
 .pytest_cache/
 goals/
 croo-setup.js
+./goals
+goals
